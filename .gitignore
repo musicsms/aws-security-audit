@@ -129,7 +129,7 @@ dmypy.json
 .pyre/
 
 # AWS Security Audit Tool specific
-reports/
+*.pem
 *.log
 .aws/
 temp/
