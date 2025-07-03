@@ -1,0 +1,373 @@
+name: "Custom Security Profile"
+description: "Example organization-specific security requirements"
+version: "1.0"
+
+categories:
+  s3:
+    enabled: true
+    description: "S3 bucket security checks"
+    checks:
+      public_access:
+        enabled: true
+        severity: "critical"
+        parameters:
+          allow_public_read: false
+          allow_public_write: false
+          check_bucket_policy: true
+        description: "Ensure S3 buckets are not publicly accessible"
+        remediation: "Configure S3 bucket public access block settings"
+      
+      encryption:
+        enabled: true
+        severity: "high"
+        parameters:
+          require_kms: true
+          allow_s3_managed: false
+        description: "Ensure S3 bucket encryption is enabled"
+        remediation: "Enable S3 bucket encryption with KMS keys"
+      
+      logging:
+        enabled: true
+        severity: "medium"
+        parameters:
+          require_access_logging: true
+          check_log_delivery: true
+        description: "Ensure S3 bucket access logging is enabled"
+        remediation: "Enable S3 bucket access logging"
+      
+      versioning:
+        enabled: true
+        severity: "medium"
+        parameters:
+          require_versioning: true
+          check_mfa_delete: true
+        description: "Ensure S3 bucket versioning is enabled"
+        remediation: "Enable S3 bucket versioning and MFA delete"
+
+  ec2:
+    enabled: true
+    description: "EC2 instance security checks"
+    checks:
+      imds_v2:
+        enabled: true
+        severity: "medium"
+        parameters:
+          require_imds_v2: true
+          check_token_required: true
+        description: "Ensure EC2 instances use IMDSv2"
+        remediation: "Configure EC2 instances to require IMDSv2"
+      
+      termination_protection:
+        enabled: true
+        severity: "low"
+        parameters:
+          require_for_critical: true
+        description: "Check EC2 termination protection"
+        remediation: "Enable termination protection for critical instances"
+      
+      monitoring:
+        enabled: true
+        severity: "low"
+        parameters:
+          prefer_detailed: true
+        description: "Check EC2 monitoring configuration"
+        remediation: "Enable detailed monitoring for better visibility"
+      
+      ebs_encryption:
+        enabled: true
+        severity: "high"
+        parameters:
+          require_encryption: true
+          check_default_encryption: true
+        description: "Ensure EBS volumes are encrypted"
+        remediation: "Enable EBS volume encryption"
+
+  security_groups:
+    enabled: true
+    description: "Security group configuration checks"
+    checks:
+      unrestricted_ingress:
+        enabled: true
+        severity: "high"
+        parameters:
+          allow_unrestricted_ssh: false
+          allow_unrestricted_rdp: false
+          check_ingress_rules: true
+        description: "Check for unrestricted security group access"
+        remediation: "Restrict security group ingress rules"
+      
+      overly_permissive_egress:
+        enabled: true
+        severity: "medium"
+        parameters:
+          allow_unrestricted_egress: false
+        description: "Check for overly permissive egress rules"
+        remediation: "Review and restrict egress rules"
+      
+      unused_security_groups:
+        enabled: true
+        severity: "low"
+        parameters:
+          check_usage: true
+        description: "Identify unused security groups"
+        remediation: "Remove unused security groups"
+
+  vpc:
+    enabled: true
+    description: "VPC network security checks"
+    checks:
+      flow_logs:
+        enabled: true
+        severity: "medium"
+        parameters:
+          require_flow_logs: true
+          check_all_vpcs: true
+        description: "Ensure VPC flow logs are enabled"
+        remediation: "Enable VPC flow logs for all VPCs"
+      
+      default_vpc:
+        enabled: true
+        severity: "low"
+        parameters:
+          flag_default_vpc_usage: true
+          recommend_deletion: true
+        description: "Check default VPC usage"
+        remediation: "Create custom VPC and delete default VPC"
+      
+      dns_settings:
+        enabled: true
+        severity: "low"
+        parameters:
+          check_dns_resolution: true
+        description: "Check VPC DNS settings"
+        remediation: "Configure appropriate DNS settings"
+      
+      vpc_endpoints:
+        enabled: true
+        severity: "medium"
+        parameters:
+          recommend_endpoints: true
+        description: "Check VPC endpoint configuration"
+        remediation: "Configure VPC endpoints for AWS services"
+
+  rds:
+    enabled: true
+    description: "RDS database security checks"
+    checks:
+      encryption:
+        enabled: true
+        severity: "high"
+        parameters:
+          require_encryption_at_rest: true
+          require_encryption_in_transit: true
+        description: "Ensure RDS encryption is enabled"
+        remediation: "Enable RDS encryption at rest and in transit"
+      
+      public_access:
+        enabled: true
+        severity: "critical"
+        parameters:
+          allow_public_access: false
+          check_subnet_groups: true
+        description: "Ensure RDS instances are not publicly accessible"
+        remediation: "Configure RDS instances in private subnets"
+      
+      backup:
+        enabled: true
+        severity: "medium"
+        parameters:
+          minimum_backup_retention: 7
+          require_automated_backups: true
+        description: "Ensure RDS automated backups are enabled"
+        remediation: "Enable RDS automated backups with adequate retention"
+      
+      multi_az:
+        enabled: true
+        severity: "medium"
+        parameters:
+          recommend_multi_az: true
+        description: "Check RDS Multi-AZ configuration"
+        remediation: "Enable Multi-AZ for high availability"
+      
+      deletion_protection:
+        enabled: true
+        severity: "medium"
+        parameters:
+          require_for_critical: true
+        description: "Check RDS deletion protection"
+        remediation: "Enable deletion protection for critical databases"
+
+  dynamodb:
+    enabled: true
+    description: "DynamoDB table security checks"
+    checks:
+      encryption_at_rest:
+        enabled: true
+        severity: "medium"
+        parameters:
+          require_customer_managed_kms: true
+        description: "Check DynamoDB encryption at rest"
+        remediation: "Enable customer-managed KMS encryption"
+      
+      point_in_time_recovery:
+        enabled: true
+        severity: "medium"
+        parameters:
+          recommend_pitr: true
+        description: "Check DynamoDB point-in-time recovery"
+        remediation: "Enable point-in-time recovery"
+      
+      access_control:
+        enabled: true
+        severity: "medium"
+        parameters:
+          check_access_patterns: true
+        description: "Check DynamoDB access control"
+        remediation: "Review table access patterns"
+      
+      auto_scaling:
+        enabled: true
+        severity: "low"
+        parameters:
+          recommend_auto_scaling: true
+        description: "Check DynamoDB auto scaling"
+        remediation: "Configure auto scaling or on-demand billing"
+
+  eks:
+    enabled: true
+    description: "EKS cluster security checks"
+    checks:
+      endpoint_access:
+        enabled: true
+        severity: "high"
+        parameters:
+          allow_public_endpoint: false
+        description: "Check EKS cluster endpoint access"
+        remediation: "Use private endpoint access only"
+      
+      cluster_logging:
+        enabled: true
+        severity: "medium"
+        parameters:
+          require_all_logs: true
+        description: "Check EKS cluster logging"
+        remediation: "Enable all control plane log types"
+      
+      node_group_security:
+        enabled: true
+        severity: "medium"
+        parameters:
+          check_subnet_placement: true
+        description: "Check EKS node group security"
+        remediation: "Ensure node groups are in private subnets"
+      
+      cluster_version:
+        enabled: true
+        severity: "low"
+        parameters:
+          check_current_version: true
+        description: "Check EKS cluster version"
+        remediation: "Keep cluster updated to recent versions"
+
+  elasticache:
+    enabled: true
+    description: "ElastiCache cluster security checks"
+    checks:
+      encryption_in_transit:
+        enabled: true
+        severity: "medium"
+        parameters:
+          require_tls: true
+        description: "Check ElastiCache encryption in transit"
+        remediation: "Enable TLS encryption for Redis clusters"
+      
+      encryption_at_rest:
+        enabled: true
+        severity: "medium"
+        parameters:
+          require_encryption: true
+        description: "Check ElastiCache encryption at rest"
+        remediation: "Enable encryption at rest for Redis clusters"
+      
+      subnet_groups:
+        enabled: true
+        severity: "medium"
+        parameters:
+          check_private_subnets: true
+        description: "Check ElastiCache subnet configuration"
+        remediation: "Use private subnets for clusters"
+      
+      auth_token:
+        enabled: true
+        severity: "medium"
+        parameters:
+          require_auth: true
+        description: "Check ElastiCache authentication"
+        remediation: "Enable Redis AUTH tokens"
+
+  kms:
+    enabled: true
+    description: "KMS key management checks"
+    checks:
+      key_rotation:
+        enabled: true
+        severity: "medium"
+        parameters:
+          require_rotation: true
+          rotation_interval_days: 365
+        description: "Ensure KMS key rotation is enabled"
+        remediation: "Enable automatic key rotation for KMS keys"
+      
+      key_policy:
+        enabled: true
+        severity: "high"
+        parameters:
+          check_overly_permissive: true
+          flag_star_principals: true
+        description: "Check KMS key policy security"
+        remediation: "Review and restrict KMS key policies"
+      
+      key_usage:
+        enabled: true
+        severity: "low"
+        parameters:
+          check_unused_keys: true
+        description: "Check KMS key usage"
+        remediation: "Remove unused keys to reduce costs"
+
+  load_balancer:
+    enabled: true
+    description: "Load balancer security checks"
+    checks:
+      ssl_configuration:
+        enabled: true
+        severity: "high"
+        parameters:
+          minimum_tls_version: "1.2"
+          require_https: true
+        description: "Check load balancer SSL configuration"
+        remediation: "Configure HTTPS with strong TLS policies"
+      
+      access_logs:
+        enabled: true
+        severity: "medium"
+        parameters:
+          require_logging: true
+        description: "Check load balancer access logging"
+        remediation: "Enable access logging to S3"
+      
+      deletion_protection:
+        enabled: true
+        severity: "low"
+        parameters:
+          recommend_protection: true
+        description: "Check load balancer deletion protection"
+        remediation: "Enable deletion protection for critical load balancers"
+      
+      security_groups:
+        enabled: true
+        severity: "medium"
+        parameters:
+          require_security_groups: true
+        description: "Check load balancer security groups"
+        remediation: "Configure appropriate security groups"

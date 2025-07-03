@@ -1,0 +1,15 @@
+include README.md
+include LICENSE
+include CHANGELOG.md
+include pyproject.toml
+include requirements.txt
+
+recursive-include docs *.rst *.md *.py *.bat *.txt
+recursive-include aws_security_audit *.py *.yaml *.yml *.json *.txt
+
+global-exclude *.pyc
+global-exclude __pycache__
+global-exclude .git*
+global-exclude *.so
+global-exclude *.dylib
+global-exclude *.egg-info 
