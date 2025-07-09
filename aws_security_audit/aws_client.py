@@ -80,16 +80,14 @@ class AWSClientManager:
         self._create_session()
     
     def _create_boto_config(self, region: str) -> Config:
-        """Create boto3 configuration with SSL settings.
+        """Create boto3 configuration.
         
         Args:
             region: AWS region for the configuration
             
         Returns:
-            Boto3 Config object with appropriate SSL settings
+            Boto3 Config object
         """
-        import os
-        
         config_params = {
             'retries': {
                 'max_attempts': self.retry_config.max_attempts,
@@ -99,23 +97,34 @@ class AWSClientManager:
             'region_name': region
         }
         
+        return Config(**config_params)
+    
+    def _get_ssl_params(self) -> dict:
+        """Get SSL parameters for client creation.
+        
+        Returns:
+            Dictionary with SSL parameters for boto3 client
+        """
+        import os
+        
+        ssl_params = {}
+        
         # Configure SSL verification
         if not self.verify_ssl:
             # Disable SSL verification entirely
-            config_params['verify'] = False
+            ssl_params['verify'] = False
         elif self.ca_bundle:
             # Use custom CA bundle
             if os.path.exists(self.ca_bundle):
-                config_params['ca_bundle'] = self.ca_bundle
-                config_params['verify'] = True
+                ssl_params['verify'] = self.ca_bundle
             else:
                 self.logger.error(f"CA bundle file not found: {self.ca_bundle}")
                 raise FileNotFoundError(f"CA bundle file not found: {self.ca_bundle}")
         else:
-            # Use system default CA bundle
-            config_params['verify'] = True
+            # Use system default CA bundle (default behavior)
+            ssl_params['verify'] = True
         
-        return Config(**config_params)
+        return ssl_params
     
     def _create_session(self) -> None:
         """Create boto3 session based on authentication method."""
@@ -131,7 +140,8 @@ class AWSClientManager:
                 
                 # Create temporary session to assume role
                 temp_session = boto3.Session()
-                sts_client = temp_session.client('sts', config=self.boto_config)
+                ssl_params = self._get_ssl_params()
+                sts_client = temp_session.client('sts', config=self.boto_config, **ssl_params)
                 
                 response = sts_client.assume_role(
                     RoleArn=role_arn,
@@ -168,7 +178,8 @@ class AWSClientManager:
     def _validate_session(self) -> None:
         """Validate AWS session by calling STS get-caller-identity."""
         try:
-            sts_client = self.session.client('sts', config=self.boto_config)
+            ssl_params = self._get_ssl_params()
+            sts_client = self.session.client('sts', config=self.boto_config, **ssl_params)
             identity = sts_client.get_caller_identity()
             
             session_account_id = identity.get('Account')
@@ -201,10 +212,14 @@ class AWSClientManager:
         
         if client_key not in self.clients:
             try:
+                # Get SSL parameters for client creation
+                ssl_params = self._get_ssl_params()
+                
                 self.clients[client_key] = self.session.client(
                     service,
                     region_name=region or self.region,
-                    config=self.boto_config
+                    config=self.boto_config,
+                    **ssl_params
                 )
                 self.logger.debug(f"Created {service} client for {region or self.region}")
             except Exception as e:

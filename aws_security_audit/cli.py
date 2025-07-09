@@ -134,6 +134,7 @@ def main(account_id, auth_method, profile_name, role_arn, access_key_id, secret_
         aws_client = AWSClientManager(
             account_id=account_id,
             auth_method=auth_method,
+            region="us-east-1",
             ca_bundle=ca_bundle,
             verify_ssl=verify_ssl,
             **auth_params
