@@ -186,6 +186,8 @@ class EC2SecurityChecks(BaseSecurityChecks):
             unencrypted_volumes = []
             encrypted_volumes = []
             
+            volume_details = []
+            
             for mapping in block_device_mappings:
                 ebs = mapping.get('Ebs', {})
                 volume_id = ebs.get('VolumeId', '')
@@ -199,6 +201,12 @@ class EC2SecurityChecks(BaseSecurityChecks):
                             volume = volumes[0]
                             encrypted = volume.get('Encrypted', False)
                             
+                            volume_details.append({
+                                'volume_id': volume_id,
+                                'encrypted': encrypted,
+                                'volume_data': volume
+                            })
+                            
                             if encrypted:
                                 encrypted_volumes.append(volume_id)
                             else:
@@ -207,6 +215,14 @@ class EC2SecurityChecks(BaseSecurityChecks):
                     except ClientError as e:
                         if e.response['Error']['Code'] != 'InvalidVolume.NotFound':
                             raise
+            
+            # Create raw evidence
+            raw_evidence = {
+                'instance_metadata': instance,
+                'block_device_mappings': block_device_mappings,
+                'volume_details': volume_details,
+                'api_call': 'describe_volumes'
+            }
             
             if unencrypted_volumes:
                 return CheckResult(
@@ -217,7 +233,8 @@ class EC2SecurityChecks(BaseSecurityChecks):
                     description="EC2 instance has unencrypted EBS volumes",
                     evidence=f"Unencrypted volumes: {', '.join(unencrypted_volumes)}",
                     remediation="Encrypt EBS volumes or create encrypted snapshots and replace",
-                    resource_id=instance_id
+                    resource_id=instance_id,
+                    raw_evidence=raw_evidence
                 )
             elif encrypted_volumes:
                 return CheckResult(
@@ -228,7 +245,8 @@ class EC2SecurityChecks(BaseSecurityChecks):
                     description="EC2 instance has all EBS volumes encrypted",
                     evidence=f"Encrypted volumes: {', '.join(encrypted_volumes)}",
                     remediation=None,
-                    resource_id=instance_id
+                    resource_id=instance_id,
+                    raw_evidence=raw_evidence
                 )
             else:
                 return CheckResult(
@@ -239,19 +257,22 @@ class EC2SecurityChecks(BaseSecurityChecks):
                     description="EC2 instance volume encryption status unknown",
                     evidence="Unable to determine volume encryption status",
                     remediation="Check volume permissions and configuration",
-                    resource_id=instance_id
+                    resource_id=instance_id,
+                    raw_evidence=raw_evidence
                 )
         
         except Exception as e:
             return self.create_error_result("EC2.4", "EBS Volume Encryption", 
-                                          config.severity, instance_id, e)
+                                          config.severity, instance_id, e, 
+                                          region=self.current_region)
     
-    def run_all_checks(self, instances: List[Dict[str, Any]], config_checks: Dict[str, CheckConfig]) -> List[CheckResult]:
+    def run_all_checks(self, instances: List[Dict[str, Any]], config_checks: Dict[str, CheckConfig], region: str = None) -> List[CheckResult]:
         """Run all EC2 security checks for given instances.
         
         Args:
             instances: List of EC2 instance dictionaries
             config_checks: Dictionary of check configurations
+            region: AWS region being checked
             
         Returns:
             List of CheckResult objects
@@ -265,21 +286,29 @@ class EC2SecurityChecks(BaseSecurityChecks):
             # IMDSv2 check
             if 'imds_v2' in config_checks:
                 result = self.check_instance_imds_v2(instance, config_checks['imds_v2'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
             
             # Termination protection check
             if 'termination_protection' in config_checks:
                 result = self.check_instance_termination_protection(instance, config_checks['termination_protection'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
             
             # Monitoring check
             if 'monitoring' in config_checks:
                 result = self.check_instance_monitoring(instance, config_checks['monitoring'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
             
             # EBS encryption check
             if 'ebs_encryption' in config_checks:
                 result = self.check_ebs_encryption(instance, config_checks['ebs_encryption'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
         
         return results

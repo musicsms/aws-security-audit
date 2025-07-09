@@ -57,6 +57,14 @@ class KMSSecurityChecks(BaseSecurityChecks):
                 
                 require_rotation = config.parameters.get('require_rotation', True)
                 
+                # Create raw evidence
+                raw_evidence = {
+                    'key_metadata': key,
+                    'rotation_response': rotation_response,
+                    'api_call': 'get_key_rotation_status',
+                    'parameters': {'KeyId': key_id}
+                }
+                
                 if rotation_enabled:
                     return CheckResult(
                         check_id="KMS.1",
@@ -66,7 +74,8 @@ class KMSSecurityChecks(BaseSecurityChecks):
                         description="KMS key has automatic rotation enabled",
                         evidence="KeyRotationEnabled=True",
                         remediation=None,
-                        resource_id=key_id
+                        resource_id=key_id,
+                        raw_evidence=raw_evidence
                     )
                 else:
                     status = CheckStatus.NOK if require_rotation else CheckStatus.NEED_REVIEW
@@ -78,7 +87,8 @@ class KMSSecurityChecks(BaseSecurityChecks):
                         description="KMS key does not have automatic rotation enabled",
                         evidence="KeyRotationEnabled=False",
                         remediation="Enable automatic key rotation for better security",
-                        resource_id=key_id
+                        resource_id=key_id,
+                        raw_evidence=raw_evidence
                     )
             
             except ClientError as e:
@@ -98,7 +108,8 @@ class KMSSecurityChecks(BaseSecurityChecks):
         
         except Exception as e:
             return self.create_error_result("KMS.1", "KMS Key Rotation", 
-                                          config.severity, key_id, e)
+                                          config.severity, key_id, e, 
+                                          region=self.current_region)
     
     def check_key_policy(self, key: Dict[str, Any], config: CheckConfig) -> CheckResult:
         """Check KMS key policy for overly permissive access."""
@@ -249,12 +260,13 @@ class KMSSecurityChecks(BaseSecurityChecks):
             return self.create_error_result("KMS.3", "KMS Key Usage", 
                                           config.severity, key_id, e)
     
-    def run_all_checks(self, keys: List[Dict[str, Any]], config_checks: Dict[str, CheckConfig]) -> List[CheckResult]:
+    def run_all_checks(self, keys: List[Dict[str, Any]], config_checks: Dict[str, CheckConfig], region: str = None) -> List[CheckResult]:
         """Run all KMS security checks for given keys.
         
         Args:
             keys: List of KMS key dictionaries
             config_checks: Dictionary of check configurations
+            region: AWS region being checked
             
         Returns:
             List of CheckResult objects
@@ -274,16 +286,22 @@ class KMSSecurityChecks(BaseSecurityChecks):
             # Key rotation check
             if 'key_rotation' in config_checks:
                 result = self.check_key_rotation(key, config_checks['key_rotation'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
             
             # Key policy check
             if 'key_policy' in config_checks:
                 result = self.check_key_policy(key, config_checks['key_policy'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
             
             # Key usage check
             if 'key_usage' in config_checks:
                 result = self.check_key_usage(key, config_checks['key_usage'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
         
         return results

@@ -149,12 +149,15 @@ class SecurityEngine:
             
             service_resources = resources[resource_key]
             
+            # Set region for the check class
+            check_class.set_region(region)
+            
             # Special handling for RDS (both instances and clusters)
             if service == 'rds':
                 all_rds_resources = service_resources + resources.get('rds_clusters', [])
-                results = check_class.run_all_checks(all_rds_resources, category_config.checks)
+                results = check_class.run_all_checks(all_rds_resources, category_config.checks, region)
             else:
-                results = check_class.run_all_checks(service_resources, category_config.checks)
+                results = check_class.run_all_checks(service_resources, category_config.checks, region)
             
             elapsed_time = time.time() - start_time
             self.logger.info(f"Completed {service} checks in {elapsed_time:.2f} seconds. Found {len(results)} results")
