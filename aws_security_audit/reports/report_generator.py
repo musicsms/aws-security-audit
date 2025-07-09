@@ -429,14 +429,7 @@ The following checks encountered errors during execution:
 - **Remediation**: {{ result.remediation or 'Not specified' }}
 
 {% if result.raw_evidence -%}
-<details>
-<summary>Raw Evidence Details</summary>
-
-```json
-{{ tojson(result.raw_evidence, indent=2) if result.raw_evidence else 'No raw evidence available' }}
-```
-
-</details>
+**Raw Evidence**: Available in separate `*_raw_evidence.json` file
 {% endif -%}
 
 {% endfor -%}
