@@ -457,8 +457,6 @@ No error findings detected.
 
 {% endfor %}
 
-{% endfor %}
-
 ## Recommendations
 
 1. **Immediate Action Required**: Address all critical severity findings
