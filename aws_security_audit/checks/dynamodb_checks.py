@@ -18,7 +18,7 @@ class DynamoDBSecurityChecks(BaseSecurityChecks):
     def check_table_encryption(self, table_name: str, config: CheckConfig) -> CheckResult:
         """Check if DynamoDB table has encryption at rest enabled."""
         try:
-            dynamodb_client = self.aws_client.get_client('dynamodb')
+            dynamodb_client = self.aws_client.get_client('dynamodb', self.current_region)
             
             response = dynamodb_client.describe_table(TableName=table_name)
             table_description = response.get('Table', {})
@@ -86,7 +86,7 @@ class DynamoDBSecurityChecks(BaseSecurityChecks):
     def check_point_in_time_recovery(self, table_name: str, config: CheckConfig) -> CheckResult:
         """Check if DynamoDB table has point-in-time recovery enabled."""
         try:
-            dynamodb_client = self.aws_client.get_client('dynamodb')
+            dynamodb_client = self.aws_client.get_client('dynamodb', self.current_region)
             
             response = dynamodb_client.describe_continuous_backups(TableName=table_name)
             continuous_backups = response.get('ContinuousBackupsDescription', {})
@@ -127,7 +127,7 @@ class DynamoDBSecurityChecks(BaseSecurityChecks):
     def check_table_access_control(self, table_name: str, config: CheckConfig) -> CheckResult:
         """Check DynamoDB table access patterns and resource policies."""
         try:
-            dynamodb_client = self.aws_client.get_client('dynamodb')
+            dynamodb_client = self.aws_client.get_client('dynamodb', self.current_region)
             
             response = dynamodb_client.describe_table(TableName=table_name)
             table_description = response.get('Table', {})
@@ -171,8 +171,8 @@ class DynamoDBSecurityChecks(BaseSecurityChecks):
     def check_auto_scaling(self, table_name: str, config: CheckConfig) -> CheckResult:
         """Check if DynamoDB table has auto scaling configured."""
         try:
-            dynamodb_client = self.aws_client.get_client('dynamodb')
-            application_autoscaling_client = self.aws_client.get_client('application-autoscaling')
+            dynamodb_client = self.aws_client.get_client('dynamodb', self.current_region)
+            application_autoscaling_client = self.aws_client.get_client('application-autoscaling', self.current_region)
             
             # Get table details first
             response = dynamodb_client.describe_table(TableName=table_name)
@@ -251,7 +251,7 @@ class DynamoDBSecurityChecks(BaseSecurityChecks):
     def check_global_tables(self, table_name: str, config: CheckConfig) -> CheckResult:
         """Check DynamoDB global tables configuration."""
         try:
-            dynamodb_client = self.aws_client.get_client('dynamodb')
+            dynamodb_client = self.aws_client.get_client('dynamodb', self.current_region)
             
             response = dynamodb_client.describe_table(TableName=table_name)
             table_description = response.get('Table', {})

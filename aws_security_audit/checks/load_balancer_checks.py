@@ -23,7 +23,7 @@ class LoadBalancerSecurityChecks(BaseSecurityChecks):
                 lb_name = load_balancer.get('LoadBalancerName', '')
                 lb_scheme = load_balancer.get('Scheme', '')
                 
-                elbv2_client = self.aws_client.get_client('elbv2')
+                elbv2_client = self.aws_client.get_client('elbv2', self.current_region)
                 
                 # Get listeners for this load balancer
                 response = elbv2_client.describe_listeners(LoadBalancerArn=lb_arn)
@@ -186,7 +186,7 @@ class LoadBalancerSecurityChecks(BaseSecurityChecks):
                 lb_arn = load_balancer.get('LoadBalancerArn', '')
                 lb_name = load_balancer.get('LoadBalancerName', '')
                 
-                elbv2_client = self.aws_client.get_client('elbv2')
+                elbv2_client = self.aws_client.get_client('elbv2', self.current_region)
                 
                 # Get load balancer attributes
                 response = elbv2_client.describe_load_balancer_attributes(LoadBalancerArn=lb_arn)
@@ -240,7 +240,7 @@ class LoadBalancerSecurityChecks(BaseSecurityChecks):
             elif lb_type == 'elb':
                 lb_name = load_balancer.get('LoadBalancerName', '')
                 
-                elb_client = self.aws_client.get_client('elb')
+                elb_client = self.aws_client.get_client('elb', self.current_region)
                 
                 # Get load balancer attributes
                 response = elb_client.describe_load_balancer_attributes(LoadBalancerName=lb_name)
@@ -296,7 +296,7 @@ class LoadBalancerSecurityChecks(BaseSecurityChecks):
                 lb_arn = load_balancer.get('LoadBalancerArn', '')
                 lb_name = load_balancer.get('LoadBalancerName', '')
                 
-                elbv2_client = self.aws_client.get_client('elbv2')
+                elbv2_client = self.aws_client.get_client('elbv2', self.current_region)
                 
                 # Get load balancer attributes
                 response = elbv2_client.describe_load_balancer_attributes(LoadBalancerArn=lb_arn)

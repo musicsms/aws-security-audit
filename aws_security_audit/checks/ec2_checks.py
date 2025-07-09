@@ -72,7 +72,7 @@ class EC2SecurityChecks(BaseSecurityChecks):
             instance_id = instance.get('InstanceId', '')
             
             # Check if instance has termination protection via describe_instance_attribute
-            ec2_client = self.aws_client.get_client('ec2')
+            ec2_client = self.aws_client.get_client('ec2', self.current_region)
             
             try:
                 response = ec2_client.describe_instance_attribute(
@@ -182,7 +182,7 @@ class EC2SecurityChecks(BaseSecurityChecks):
                     resource_id=instance_id
                 )
             
-            ec2_client = self.aws_client.get_client('ec2')
+            ec2_client = self.aws_client.get_client('ec2', self.current_region)
             unencrypted_volumes = []
             encrypted_volumes = []
             

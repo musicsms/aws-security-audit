@@ -167,7 +167,7 @@ class ElastiCacheSecurityChecks(BaseSecurityChecks):
                 )
             
             # Get subnet group details
-            elasticache_client = self.aws_client.get_client('elasticache')
+            elasticache_client = self.aws_client.get_client('elasticache', self.current_region)
             
             try:
                 response = elasticache_client.describe_cache_subnet_groups(
@@ -295,7 +295,7 @@ class ElastiCacheSecurityChecks(BaseSecurityChecks):
                 
                 if replication_group_id:
                     # This is part of a replication group, check replication group backup settings
-                    elasticache_client = self.aws_client.get_client('elasticache')
+                    elasticache_client = self.aws_client.get_client('elasticache', self.current_region)
                     
                     try:
                         response = elasticache_client.describe_replication_groups(

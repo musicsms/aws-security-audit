@@ -19,7 +19,7 @@ class VPCSecurityChecks(BaseSecurityChecks):
         """Check if VPC has flow logs enabled."""
         try:
             vpc_id = vpc.get('VpcId', '')
-            ec2_client = self.aws_client.get_client('ec2')
+            ec2_client = self.aws_client.get_client('ec2', self.current_region)
             
             # Check for flow logs for this VPC
             response = ec2_client.describe_flow_logs(
@@ -75,7 +75,7 @@ class VPCSecurityChecks(BaseSecurityChecks):
             
             if is_default and flag_default_vpc:
                 # Check if default VPC has any instances
-                ec2_client = self.aws_client.get_client('ec2')
+                ec2_client = self.aws_client.get_client('ec2', self.current_region)
                 
                 try:
                     response = ec2_client.describe_instances(
@@ -151,7 +151,7 @@ class VPCSecurityChecks(BaseSecurityChecks):
         """Check VPC DNS resolution and DNS hostnames settings."""
         try:
             vpc_id = vpc.get('VpcId', '')
-            ec2_client = self.aws_client.get_client('ec2')
+            ec2_client = self.aws_client.get_client('ec2', self.current_region)
             
             # Get DNS attributes
             dns_support_response = ec2_client.describe_vpc_attribute(
@@ -209,7 +209,7 @@ class VPCSecurityChecks(BaseSecurityChecks):
         """Check if VPC has endpoints configured for AWS services."""
         try:
             vpc_id = vpc.get('VpcId', '')
-            ec2_client = self.aws_client.get_client('ec2')
+            ec2_client = self.aws_client.get_client('ec2', self.current_region)
             
             # Get VPC endpoints
             response = ec2_client.describe_vpc_endpoints(

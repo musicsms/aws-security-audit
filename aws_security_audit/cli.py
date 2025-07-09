@@ -130,11 +130,17 @@ def main(account_id, auth_method, profile_name, role_arn, access_key_id, secret_
         logger.info(f"Loaded security profile: {profile.name}")
         logger.info(f"Profile version: {profile.version}")
         
+        # Determine the primary region for AWS client initialization
+        # Use first target region if specified, otherwise let AWS client detect default
+        primary_region = None
+        if target_regions:
+            primary_region = target_regions[0]
+        
         # Initialize AWS client
         aws_client = AWSClientManager(
             account_id=account_id,
             auth_method=auth_method,
-            region="us-east-1",
+            region=primary_region,
             ca_bundle=ca_bundle,
             verify_ssl=verify_ssl,
             **auth_params

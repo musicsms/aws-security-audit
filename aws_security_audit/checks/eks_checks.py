@@ -18,7 +18,7 @@ class EKSSecurityChecks(BaseSecurityChecks):
     def check_cluster_endpoint_access(self, cluster_name: str, config: CheckConfig) -> CheckResult:
         """Check EKS cluster endpoint access configuration."""
         try:
-            eks_client = self.aws_client.get_client('eks')
+            eks_client = self.aws_client.get_client('eks', self.current_region)
             
             response = eks_client.describe_cluster(name=cluster_name)
             cluster = response.get('cluster', {})
@@ -109,7 +109,7 @@ class EKSSecurityChecks(BaseSecurityChecks):
     def check_cluster_logging(self, cluster_name: str, config: CheckConfig) -> CheckResult:
         """Check EKS cluster control plane logging configuration."""
         try:
-            eks_client = self.aws_client.get_client('eks')
+            eks_client = self.aws_client.get_client('eks', self.current_region)
             
             response = eks_client.describe_cluster(name=cluster_name)
             cluster = response.get('cluster', {})
@@ -176,7 +176,7 @@ class EKSSecurityChecks(BaseSecurityChecks):
     def check_node_group_security(self, cluster_name: str, config: CheckConfig) -> CheckResult:
         """Check EKS node group security configuration."""
         try:
-            eks_client = self.aws_client.get_client('eks')
+            eks_client = self.aws_client.get_client('eks', self.current_region)
             
             # List node groups for the cluster
             response = eks_client.list_nodegroups(clusterName=cluster_name)
@@ -256,7 +256,7 @@ class EKSSecurityChecks(BaseSecurityChecks):
     def check_cluster_version(self, cluster_name: str, config: CheckConfig) -> CheckResult:
         """Check EKS cluster Kubernetes version."""
         try:
-            eks_client = self.aws_client.get_client('eks')
+            eks_client = self.aws_client.get_client('eks', self.current_region)
             
             response = eks_client.describe_cluster(name=cluster_name)
             cluster = response.get('cluster', {})

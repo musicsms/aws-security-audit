@@ -160,7 +160,7 @@ class SecurityGroupsChecks(BaseSecurityChecks):
     def check_unused_security_groups(self, security_groups: List[Dict[str, Any]], config: CheckConfig) -> List[CheckResult]:
         """Check for unused security groups."""
         try:
-            ec2_client = self.aws_client.get_client('ec2')
+            ec2_client = self.aws_client.get_client('ec2', self.current_region)
             
             # Get all network interfaces to check security group usage
             try:

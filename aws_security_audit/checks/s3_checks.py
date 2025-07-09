@@ -18,7 +18,7 @@ class S3SecurityChecks(BaseSecurityChecks):
     def check_bucket_public_access(self, bucket_name: str, config: CheckConfig) -> CheckResult:
         """Check if S3 bucket has public access blocked."""
         try:
-            s3_client = self.aws_client.get_client('s3')
+            s3_client = self.aws_client.get_client('s3', self.current_region)
             
             # Check public access block configuration
             try:
@@ -91,7 +91,7 @@ class S3SecurityChecks(BaseSecurityChecks):
     def check_bucket_encryption(self, bucket_name: str, config: CheckConfig) -> CheckResult:
         """Check if S3 bucket has encryption enabled."""
         try:
-            s3_client = self.aws_client.get_client('s3')
+            s3_client = self.aws_client.get_client('s3', self.current_region)
             
             try:
                 response = s3_client.get_bucket_encryption(Bucket=bucket_name)
@@ -196,7 +196,7 @@ class S3SecurityChecks(BaseSecurityChecks):
     def check_bucket_logging(self, bucket_name: str, config: CheckConfig) -> CheckResult:
         """Check if S3 bucket has access logging enabled."""
         try:
-            s3_client = self.aws_client.get_client('s3')
+            s3_client = self.aws_client.get_client('s3', self.current_region)
             
             try:
                 response = s3_client.get_bucket_logging(Bucket=bucket_name)
@@ -271,7 +271,7 @@ class S3SecurityChecks(BaseSecurityChecks):
     def check_bucket_versioning(self, bucket_name: str, config: CheckConfig) -> CheckResult:
         """Check if S3 bucket has versioning enabled."""
         try:
-            s3_client = self.aws_client.get_client('s3')
+            s3_client = self.aws_client.get_client('s3', self.current_region)
             
             response = s3_client.get_bucket_versioning(Bucket=bucket_name)
             versioning_status = response.get('Status', 'Disabled')

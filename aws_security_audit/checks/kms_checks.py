@@ -19,7 +19,7 @@ class KMSSecurityChecks(BaseSecurityChecks):
         """Check if KMS key has rotation enabled."""
         try:
             key_id = key.get('KeyId', '')
-            kms_client = self.aws_client.get_client('kms')
+            kms_client = self.aws_client.get_client('kms', self.current_region)
             
             # Only check customer-managed keys
             key_spec = key.get('KeySpec', '')
@@ -115,7 +115,7 @@ class KMSSecurityChecks(BaseSecurityChecks):
         """Check KMS key policy for overly permissive access."""
         try:
             key_id = key.get('KeyId', '')
-            kms_client = self.aws_client.get_client('kms')
+            kms_client = self.aws_client.get_client('kms', self.current_region)
             
             # Get key policy
             try:
