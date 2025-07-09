@@ -23,6 +23,13 @@ class EKSSecurityChecks(BaseSecurityChecks):
             response = eks_client.describe_cluster(name=cluster_name)
             cluster = response.get('cluster', {})
             
+            # Create raw evidence
+            raw_evidence = {
+                'cluster_response': response,
+                'api_call': 'describe_cluster',
+                'parameters': {'name': cluster_name}
+            }
+            
             endpoint_config = cluster.get('resourcesVpcConfig', {})
             endpoint_private_access = endpoint_config.get('endpointPrivateAccess', False)
             endpoint_public_access = endpoint_config.get('endpointPublicAccess', True)
@@ -39,7 +46,8 @@ class EKSSecurityChecks(BaseSecurityChecks):
                     description="EKS cluster has private endpoint access only",
                     evidence=f"Private access: {endpoint_private_access}, Public access: {endpoint_public_access}",
                     remediation=None,
-                    resource_id=cluster_name
+                    resource_id=cluster_name,
+                    raw_evidence=raw_evidence
                 )
             elif endpoint_private_access and endpoint_public_access:
                 # Check if public access is restricted
@@ -53,7 +61,8 @@ class EKSSecurityChecks(BaseSecurityChecks):
                         description="EKS cluster has restricted public endpoint access",
                         evidence=f"Private: {endpoint_private_access}, Public: {endpoint_public_access}, CIDRs: {public_access_cidrs}",
                         remediation="Consider using private endpoint only" if not allow_public_endpoint else None,
-                        resource_id=cluster_name
+                        resource_id=cluster_name,
+                        raw_evidence=raw_evidence
                     )
                 else:
                     return CheckResult(
@@ -64,7 +73,8 @@ class EKSSecurityChecks(BaseSecurityChecks):
                         description="EKS cluster has unrestricted public endpoint access",
                         evidence=f"Public access enabled with unrestricted CIDRs: {public_access_cidrs}",
                         remediation="Restrict public endpoint access or use private endpoint only",
-                        resource_id=cluster_name
+                        resource_id=cluster_name,
+                        raw_evidence=raw_evidence
                     )
             elif not endpoint_private_access and endpoint_public_access:
                 return CheckResult(
@@ -75,7 +85,8 @@ class EKSSecurityChecks(BaseSecurityChecks):
                     description="EKS cluster has public endpoint access only",
                     evidence=f"Private access: {endpoint_private_access}, Public access: {endpoint_public_access}",
                     remediation="Enable private endpoint access and restrict or disable public access",
-                    resource_id=cluster_name
+                    resource_id=cluster_name,
+                    raw_evidence=raw_evidence
                 )
             else:
                 return CheckResult(
@@ -86,12 +97,14 @@ class EKSSecurityChecks(BaseSecurityChecks):
                     description="EKS cluster has no endpoint access configured",
                     evidence=f"Private access: {endpoint_private_access}, Public access: {endpoint_public_access}",
                     remediation="Configure appropriate endpoint access",
-                    resource_id=cluster_name
+                    resource_id=cluster_name,
+                    raw_evidence=raw_evidence
                 )
         
         except Exception as e:
             return self.create_error_result("EKS.1", "EKS Cluster Endpoint Access", 
-                                          config.severity, cluster_name, e)
+                                          config.severity, cluster_name, e,
+                                          raw_evidence={'cluster_name': cluster_name})
     
     def check_cluster_logging(self, cluster_name: str, config: CheckConfig) -> CheckResult:
         """Check EKS cluster control plane logging configuration."""
@@ -157,7 +170,8 @@ class EKSSecurityChecks(BaseSecurityChecks):
         
         except Exception as e:
             return self.create_error_result("EKS.2", "EKS Cluster Logging", 
-                                          config.severity, cluster_name, e)
+                                          config.severity, cluster_name, e,
+                                          raw_evidence={'cluster_name': cluster_name})
     
     def check_node_group_security(self, cluster_name: str, config: CheckConfig) -> CheckResult:
         """Check EKS node group security configuration."""
@@ -306,12 +320,13 @@ class EKSSecurityChecks(BaseSecurityChecks):
             return self.create_error_result("EKS.4", "EKS Cluster Version", 
                                           config.severity, cluster_name, e)
     
-    def run_all_checks(self, cluster_names: List[str], config_checks: Dict[str, CheckConfig]) -> List[CheckResult]:
+    def run_all_checks(self, cluster_names: List[str], config_checks: Dict[str, CheckConfig], region: str = None) -> List[CheckResult]:
         """Run all EKS security checks for given clusters.
         
         Args:
             cluster_names: List of EKS cluster names
             config_checks: Dictionary of check configurations
+            region: AWS region being checked
             
         Returns:
             List of CheckResult objects
@@ -324,21 +339,29 @@ class EKSSecurityChecks(BaseSecurityChecks):
             # Endpoint access check
             if 'endpoint_access' in config_checks:
                 result = self.check_cluster_endpoint_access(cluster_name, config_checks['endpoint_access'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
             
             # Cluster logging check
             if 'cluster_logging' in config_checks:
                 result = self.check_cluster_logging(cluster_name, config_checks['cluster_logging'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
             
             # Node group security check
             if 'node_group_security' in config_checks:
                 result = self.check_node_group_security(cluster_name, config_checks['node_group_security'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
             
             # Cluster version check
             if 'cluster_version' in config_checks:
                 result = self.check_cluster_version(cluster_name, config_checks['cluster_version'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
         
         return results

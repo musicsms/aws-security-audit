@@ -253,12 +253,13 @@ class VPCSecurityChecks(BaseSecurityChecks):
             return self.create_error_result("VPC.4", "VPC Endpoints", 
                                           config.severity, vpc_id, e)
     
-    def run_all_checks(self, vpcs: List[Dict[str, Any]], config_checks: Dict[str, CheckConfig]) -> List[CheckResult]:
+    def run_all_checks(self, vpcs: List[Dict[str, Any]], config_checks: Dict[str, CheckConfig], region: str = None) -> List[CheckResult]:
         """Run all VPC security checks for given VPCs.
         
         Args:
             vpcs: List of VPC dictionaries
             config_checks: Dictionary of check configurations
+            region: AWS region being checked
             
         Returns:
             List of CheckResult objects
@@ -272,21 +273,29 @@ class VPCSecurityChecks(BaseSecurityChecks):
             # Flow logs check
             if 'flow_logs' in config_checks:
                 result = self.check_vpc_flow_logs(vpc, config_checks['flow_logs'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
             
             # Default VPC usage check
             if 'default_vpc' in config_checks:
                 result = self.check_default_vpc_usage(vpc, config_checks['default_vpc'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
             
             # DNS settings check
             if 'dns_settings' in config_checks:
                 result = self.check_vpc_dns_settings(vpc, config_checks['dns_settings'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
             
             # VPC endpoints check
             if 'vpc_endpoints' in config_checks:
                 result = self.check_vpc_endpoints(vpc, config_checks['vpc_endpoints'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
         
         return results

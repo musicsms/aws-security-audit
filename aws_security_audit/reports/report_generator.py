@@ -176,9 +176,10 @@ class ReportGenerator:
             if value is None:
                 return 'null'
             try:
-                return json.dumps(self._filter_sensitive_data(value), indent=indent, default=str)
-            except:
-                return str(value)
+                filtered_value = self._filter_sensitive_data(value) if isinstance(value, dict) else value
+                return json.dumps(filtered_value, indent=indent, default=str)
+            except Exception as e:
+                return f"Error formatting JSON: {str(e)}\nRaw value: {str(value)}"
         
         template.globals['tojson'] = tojson_filter
         
@@ -366,7 +367,7 @@ No critical findings detected.
 
 {% if results_by_severity.high -%}
 {% for result in results_by_severity.high -%}
-{% if result.status.value == 'NOK' -%}
+{% if result.status.value == 'NOK' or result.status.value == 'ERROR' -%}
 ### {{ result.name }}
 
 - **Check ID**: {{ result.check_id }}
@@ -394,6 +395,38 @@ No critical findings detected.
 No high severity findings detected.
 {% endif %}
 
+## Error Status Findings
+
+{% if results_by_status.ERROR -%}
+The following checks encountered errors during execution:
+
+{% for result in results_by_status.ERROR -%}
+### {{ result.name }}
+
+- **Check ID**: {{ result.check_id }}
+- **Status**: {{ result.status.value }}
+- **Resource**: {{ result.resource_id or 'N/A' }}
+- **Region**: {{ result.region or 'N/A' }}
+- **Description**: {{ result.description }}
+- **Evidence**: {{ result.evidence }}
+- **Remediation**: {{ result.remediation or 'Not specified' }}
+
+{% if result.raw_evidence -%}
+<details>
+<summary>Raw Evidence Details</summary>
+
+```json
+{{ tojson(result.raw_evidence, indent=2) if result.raw_evidence else 'No raw evidence available' }}
+```
+
+</details>
+{% endif -%}
+
+{% endfor -%}
+{% else -%}
+No error findings detected.
+{% endif %}
+
 ## Detailed Results by Service
 
 {% for service, service_results in results_by_service.items() -%}
@@ -403,6 +436,22 @@ No high severity findings detected.
 |-------|--------|----------|----------|--------|
 {% for result in service_results -%}
 | {{ result.name }} | {{ result.status.value }} | {{ result.severity.value }} | {{ result.resource_id or 'N/A' }} | {{ result.region or 'N/A' }} |
+{% endfor %}
+
+{% for result in service_results -%}
+{% if result.raw_evidence -%}
+#### {{ result.name }} - Raw Evidence
+
+<details>
+<summary>Raw Evidence for {{ result.resource_id or 'N/A' }}</summary>
+
+```json
+{{ tojson(result.raw_evidence, indent=2) }}
+```
+
+</details>
+
+{% endif -%}
 {% endfor %}
 
 {% endfor %}

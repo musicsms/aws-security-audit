@@ -340,12 +340,13 @@ class S3SecurityChecks(BaseSecurityChecks):
                 resource_id=bucket_name
             )
     
-    def run_all_checks(self, bucket_names: List[str], config_checks: Dict[str, CheckConfig]) -> List[CheckResult]:
+    def run_all_checks(self, bucket_names: List[str], config_checks: Dict[str, CheckConfig], region: str = None) -> List[CheckResult]:
         """Run all S3 security checks for given buckets.
         
         Args:
             bucket_names: List of S3 bucket names to check
             config_checks: Dictionary of check configurations
+            region: AWS region being checked
             
         Returns:
             List of CheckResult objects
@@ -358,21 +359,29 @@ class S3SecurityChecks(BaseSecurityChecks):
             # Public access check
             if 'public_access' in config_checks:
                 result = self.check_bucket_public_access(bucket_name, config_checks['public_access'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
             
             # Encryption check
             if 'encryption' in config_checks:
                 result = self.check_bucket_encryption(bucket_name, config_checks['encryption'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
             
             # Logging check
             if 'logging' in config_checks:
                 result = self.check_bucket_logging(bucket_name, config_checks['logging'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
             
             # Versioning check
             if 'versioning' in config_checks:
                 result = self.check_bucket_versioning(bucket_name, config_checks['versioning'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
         
         return results

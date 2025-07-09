@@ -49,7 +49,7 @@ def setup_logging(verbose: bool = False):
 @click.option('--output-format', multiple=True, default=['markdown'],
               type=click.Choice(['json', 'csv', 'markdown']),
               help='Output format(s) - can specify multiple')
-@click.option('--output-dir', default='./reports', help='Output directory for reports')
+@click.option('--output-dir', default='./result', help='Output directory for reports')
 @click.option('--regions', help='Comma-separated list of AWS regions (default: current region)')
 @click.option('--services', help='Comma-separated list of services to check (default: all)')
 @click.option('--parallel-checks', default=5, type=int, help='Number of parallel check threads')

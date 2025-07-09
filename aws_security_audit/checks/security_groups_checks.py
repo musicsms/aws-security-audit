@@ -204,12 +204,13 @@ class SecurityGroupsChecks(BaseSecurityChecks):
             self.logger.error(f"Error checking unused security groups: {e}")
             return []
     
-    def run_all_checks(self, security_groups: List[Dict[str, Any]], config_checks: Dict[str, CheckConfig]) -> List[CheckResult]:
+    def run_all_checks(self, security_groups: List[Dict[str, Any]], config_checks: Dict[str, CheckConfig], region: str = None) -> List[CheckResult]:
         """Run all security group checks.
         
         Args:
             security_groups: List of security group dictionaries
             config_checks: Dictionary of check configurations
+            region: AWS region being checked
             
         Returns:
             List of CheckResult objects
@@ -223,16 +224,23 @@ class SecurityGroupsChecks(BaseSecurityChecks):
             # Unrestricted ingress check
             if 'unrestricted_ingress' in config_checks:
                 result = self.check_unrestricted_ingress(sg, config_checks['unrestricted_ingress'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
             
             # Overly permissive egress check
             if 'overly_permissive_egress' in config_checks:
                 result = self.check_overly_permissive_egress(sg, config_checks['overly_permissive_egress'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
         
         # Unused security groups check (run once for all groups)
         if 'unused_security_groups' in config_checks:
             unused_results = self.check_unused_security_groups(security_groups, config_checks['unused_security_groups'])
+            for result in unused_results:
+                if result:
+                    result.region = region or self.current_region
             results.extend(unused_results)
         
         return results

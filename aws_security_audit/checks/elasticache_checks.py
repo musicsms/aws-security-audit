@@ -21,6 +21,13 @@ class ElastiCacheSecurityChecks(BaseSecurityChecks):
             cluster_id = cluster.get('CacheClusterId', '')
             engine = cluster.get('Engine', '')
             
+            # Create raw evidence
+            raw_evidence = {
+                'cluster_metadata': cluster,
+                'api_call': 'describe_cache_clusters',
+                'parameters': {'CacheClusterId': cluster_id}
+            }
+            
             # Encryption in transit availability depends on engine
             if engine == 'redis':
                 transit_encryption_enabled = cluster.get('TransitEncryptionEnabled', False)
@@ -36,7 +43,8 @@ class ElastiCacheSecurityChecks(BaseSecurityChecks):
                         description="ElastiCache Redis cluster has encryption in transit enabled",
                         evidence="TransitEncryptionEnabled=True",
                         remediation=None,
-                        resource_id=cluster_id
+                        resource_id=cluster_id,
+                        raw_evidence=raw_evidence
                     )
                 else:
                     status = CheckStatus.NOK if require_tls else CheckStatus.NEED_REVIEW
@@ -48,7 +56,8 @@ class ElastiCacheSecurityChecks(BaseSecurityChecks):
                         description="ElastiCache Redis cluster does not have encryption in transit enabled",
                         evidence="TransitEncryptionEnabled=False",
                         remediation="Enable encryption in transit for Redis cluster",
-                        resource_id=cluster_id
+                        resource_id=cluster_id,
+                        raw_evidence=raw_evidence
                     )
             elif engine == 'memcached':
                 return CheckResult(
@@ -59,7 +68,8 @@ class ElastiCacheSecurityChecks(BaseSecurityChecks):
                     description="ElastiCache Memcached does not support encryption in transit",
                     evidence="Engine: memcached",
                     remediation="Consider using Redis for encryption support",
-                    resource_id=cluster_id
+                    resource_id=cluster_id,
+                    raw_evidence=raw_evidence
                 )
             else:
                 return CheckResult(
@@ -70,12 +80,14 @@ class ElastiCacheSecurityChecks(BaseSecurityChecks):
                     description="Unknown ElastiCache engine type",
                     evidence=f"Engine: {engine}",
                     remediation="Review cluster engine configuration",
-                    resource_id=cluster_id
+                    resource_id=cluster_id,
+                    raw_evidence=raw_evidence
                 )
         
         except Exception as e:
             return self.create_error_result("EC.1", "ElastiCache Encryption in Transit", 
-                                          config.severity, cluster_id, e)
+                                          config.severity, cluster_id, e,
+                                          raw_evidence={'cluster_metadata': cluster})
     
     def check_encryption_at_rest(self, cluster: Dict[str, Any], config: CheckConfig) -> CheckResult:
         """Check if ElastiCache cluster has encryption at rest enabled."""
@@ -133,7 +145,8 @@ class ElastiCacheSecurityChecks(BaseSecurityChecks):
         
         except Exception as e:
             return self.create_error_result("EC.2", "ElastiCache Encryption at Rest", 
-                                          config.severity, cluster_id, e)
+                                          config.severity, cluster_id, e,
+                                          raw_evidence={'cluster_metadata': cluster})
     
     def check_subnet_groups(self, cluster: Dict[str, Any], config: CheckConfig) -> CheckResult:
         """Check ElastiCache cluster subnet group configuration."""
@@ -379,12 +392,13 @@ class ElastiCacheSecurityChecks(BaseSecurityChecks):
             return self.create_error_result("EC.5", "ElastiCache Backup Configuration", 
                                           config.severity, cluster_id, e)
     
-    def run_all_checks(self, clusters: List[Dict[str, Any]], config_checks: Dict[str, CheckConfig]) -> List[CheckResult]:
+    def run_all_checks(self, clusters: List[Dict[str, Any]], config_checks: Dict[str, CheckConfig], region: str = None) -> List[CheckResult]:
         """Run all ElastiCache security checks for given clusters.
         
         Args:
             clusters: List of ElastiCache cluster dictionaries
             config_checks: Dictionary of check configurations
+            region: AWS region being checked
             
         Returns:
             List of CheckResult objects
@@ -398,26 +412,36 @@ class ElastiCacheSecurityChecks(BaseSecurityChecks):
             # Encryption in transit check
             if 'encryption_in_transit' in config_checks:
                 result = self.check_encryption_in_transit(cluster, config_checks['encryption_in_transit'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
             
             # Encryption at rest check
             if 'encryption_at_rest' in config_checks:
                 result = self.check_encryption_at_rest(cluster, config_checks['encryption_at_rest'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
             
             # Subnet groups check
             if 'subnet_groups' in config_checks:
                 result = self.check_subnet_groups(cluster, config_checks['subnet_groups'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
             
             # Authentication check
             if 'auth_token' in config_checks:
                 result = self.check_auth_token(cluster, config_checks['auth_token'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
             
             # Backup configuration check
             if 'backup_configuration' in config_checks:
                 result = self.check_backup_configuration(cluster, config_checks['backup_configuration'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
         
         return results

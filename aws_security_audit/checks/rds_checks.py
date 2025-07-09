@@ -204,12 +204,13 @@ class RDSSecurityChecks(BaseSecurityChecks):
             return self.create_error_result("RDS.5", "RDS Instance Deletion Protection", 
                                           config.severity, instance_id, e)
     
-    def run_all_checks(self, instances: List[Dict[str, Any]], config_checks: Dict[str, CheckConfig]) -> List[CheckResult]:
+    def run_all_checks(self, instances: List[Dict[str, Any]], config_checks: Dict[str, CheckConfig], region: str = None) -> List[CheckResult]:
         """Run all RDS security checks for given instances.
         
         Args:
             instances: List of RDS instance dictionaries
             config_checks: Dictionary of check configurations
+            region: AWS region being checked
             
         Returns:
             List of CheckResult objects
@@ -223,26 +224,36 @@ class RDSSecurityChecks(BaseSecurityChecks):
             # Encryption check
             if 'encryption' in config_checks:
                 result = self.check_instance_encryption(instance, config_checks['encryption'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
             
             # Public access check
             if 'public_access' in config_checks:
                 result = self.check_instance_public_access(instance, config_checks['public_access'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
             
             # Backup check
             if 'backup' in config_checks:
                 result = self.check_instance_backups(instance, config_checks['backup'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
             
             # Multi-AZ check
             if 'multi_az' in config_checks:
                 result = self.check_instance_multi_az(instance, config_checks['multi_az'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
             
             # Deletion protection check
             if 'deletion_protection' in config_checks:
                 result = self.check_instance_deletion_protection(instance, config_checks['deletion_protection'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
         
         return results

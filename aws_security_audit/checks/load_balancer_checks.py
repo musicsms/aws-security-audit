@@ -29,6 +29,14 @@ class LoadBalancerSecurityChecks(BaseSecurityChecks):
                 response = elbv2_client.describe_listeners(LoadBalancerArn=lb_arn)
                 listeners = response.get('Listeners', [])
                 
+                # Create raw evidence
+                raw_evidence = {
+                    'load_balancer_metadata': load_balancer,
+                    'listeners_response': response,
+                    'api_call': 'describe_listeners',
+                    'parameters': {'LoadBalancerArn': lb_arn}
+                }
+                
                 https_listeners = []
                 http_listeners = []
                 ssl_policies = []
@@ -63,7 +71,8 @@ class LoadBalancerSecurityChecks(BaseSecurityChecks):
                             description="Load balancer uses HTTPS but has weak SSL policies",
                             evidence=f"HTTPS listeners: {', '.join(https_listeners)}, Weak policies: {', '.join(weak_policies)}",
                             remediation="Update SSL policies to use stronger TLS versions",
-                            resource_id=lb_name
+                            resource_id=lb_name,
+                            raw_evidence=raw_evidence
                         )
                     else:
                         return CheckResult(
@@ -74,7 +83,8 @@ class LoadBalancerSecurityChecks(BaseSecurityChecks):
                             description="Load balancer has secure HTTPS configuration",
                             evidence=f"HTTPS listeners: {', '.join(https_listeners)}, SSL policies: {', '.join(ssl_policies)}",
                             remediation=None,
-                            resource_id=lb_name
+                            resource_id=lb_name,
+                            raw_evidence=raw_evidence
                         )
                 elif https_listeners and http_listeners:
                     return CheckResult(
@@ -85,7 +95,8 @@ class LoadBalancerSecurityChecks(BaseSecurityChecks):
                         description="Load balancer has both HTTP and HTTPS listeners",
                         evidence=f"HTTPS: {', '.join(https_listeners)}, HTTP: {', '.join(http_listeners)}",
                         remediation="Consider redirecting HTTP to HTTPS or removing HTTP listeners",
-                        resource_id=lb_name
+                        resource_id=lb_name,
+                        raw_evidence=raw_evidence
                     )
                 else:
                     return CheckResult(
@@ -96,12 +107,21 @@ class LoadBalancerSecurityChecks(BaseSecurityChecks):
                         description="Load balancer does not have HTTPS listeners configured",
                         evidence=f"HTTP listeners: {', '.join(http_listeners) if http_listeners else 'None'}",
                         remediation="Configure HTTPS listeners with appropriate SSL certificates",
-                        resource_id=lb_name
+                        resource_id=lb_name,
+                        raw_evidence=raw_evidence
                     )
             
             elif lb_type == 'elb':
                 lb_name = load_balancer.get('LoadBalancerName', '')
                 listeners = load_balancer.get('ListenerDescriptions', [])
+                
+                # Create raw evidence
+                raw_evidence = {
+                    'load_balancer_metadata': load_balancer,
+                    'listener_descriptions': listeners,
+                    'api_call': 'describe_load_balancers',
+                    'lb_type': 'elb'
+                }
                 
                 https_listeners = []
                 http_listeners = []
@@ -125,7 +145,8 @@ class LoadBalancerSecurityChecks(BaseSecurityChecks):
                         description="Classic Load Balancer has HTTPS configuration",
                         evidence=f"HTTPS listeners: {', '.join(https_listeners)}",
                         remediation=None,
-                        resource_id=lb_name
+                        resource_id=lb_name,
+                        raw_evidence=raw_evidence
                     )
                 elif https_listeners and http_listeners:
                     return CheckResult(
@@ -136,7 +157,8 @@ class LoadBalancerSecurityChecks(BaseSecurityChecks):
                         description="Classic Load Balancer has both HTTP and HTTPS listeners",
                         evidence=f"HTTPS: {', '.join(https_listeners)}, HTTP: {', '.join(http_listeners)}",
                         remediation="Consider using only HTTPS listeners",
-                        resource_id=lb_name
+                        resource_id=lb_name,
+                        raw_evidence=raw_evidence
                     )
                 else:
                     return CheckResult(
@@ -147,13 +169,15 @@ class LoadBalancerSecurityChecks(BaseSecurityChecks):
                         description="Classic Load Balancer does not have HTTPS listeners",
                         evidence=f"HTTP listeners: {', '.join(http_listeners) if http_listeners else 'None'}",
                         remediation="Configure HTTPS listeners with SSL certificates",
-                        resource_id=lb_name
+                        resource_id=lb_name,
+                        raw_evidence=raw_evidence
                     )
         
         except Exception as e:
             lb_name = load_balancer.get('LoadBalancerName', 'unknown')
             return self.create_error_result("LB.1", "Load Balancer SSL Configuration", 
-                                          config.severity, lb_name, e)
+                                          config.severity, lb_name, e,
+                                          raw_evidence={'load_balancer_metadata': load_balancer})
     
     def check_access_logs(self, load_balancer: Dict[str, Any], lb_type: str, config: CheckConfig) -> CheckResult:
         """Check if load balancer has access logging enabled."""
@@ -167,6 +191,14 @@ class LoadBalancerSecurityChecks(BaseSecurityChecks):
                 # Get load balancer attributes
                 response = elbv2_client.describe_load_balancer_attributes(LoadBalancerArn=lb_arn)
                 attributes = response.get('Attributes', [])
+                
+                # Create raw evidence
+                raw_evidence = {
+                    'load_balancer_metadata': load_balancer,
+                    'attributes_response': response,
+                    'api_call': 'describe_load_balancer_attributes',
+                    'parameters': {'LoadBalancerArn': lb_arn}
+                }
                 
                 access_logs_enabled = False
                 s3_bucket = ''
@@ -189,7 +221,8 @@ class LoadBalancerSecurityChecks(BaseSecurityChecks):
                         description="Load balancer has access logging enabled",
                         evidence=f"Access logs enabled, S3 bucket: {s3_bucket}",
                         remediation=None,
-                        resource_id=lb_name
+                        resource_id=lb_name,
+                        raw_evidence=raw_evidence
                     )
                 else:
                     return CheckResult(
@@ -200,7 +233,8 @@ class LoadBalancerSecurityChecks(BaseSecurityChecks):
                         description="Load balancer does not have access logging enabled",
                         evidence=f"Access logs enabled: {access_logs_enabled}, S3 bucket: {s3_bucket}",
                         remediation="Enable access logging to S3 for monitoring and troubleshooting",
-                        resource_id=lb_name
+                        resource_id=lb_name,
+                        raw_evidence=raw_evidence
                     )
             
             elif lb_type == 'elb':
@@ -211,6 +245,14 @@ class LoadBalancerSecurityChecks(BaseSecurityChecks):
                 # Get load balancer attributes
                 response = elb_client.describe_load_balancer_attributes(LoadBalancerName=lb_name)
                 attributes = response.get('LoadBalancerAttributes', {})
+                
+                # Create raw evidence
+                raw_evidence = {
+                    'load_balancer_metadata': load_balancer,
+                    'attributes_response': response,
+                    'api_call': 'describe_load_balancer_attributes',
+                    'parameters': {'LoadBalancerName': lb_name}
+                }
                 
                 access_log = attributes.get('AccessLog', {})
                 enabled = access_log.get('Enabled', False)
@@ -225,7 +267,8 @@ class LoadBalancerSecurityChecks(BaseSecurityChecks):
                         description="Classic Load Balancer has access logging enabled",
                         evidence=f"Access logs enabled, S3 bucket: {s3_bucket_name}",
                         remediation=None,
-                        resource_id=lb_name
+                        resource_id=lb_name,
+                        raw_evidence=raw_evidence
                     )
                 else:
                     return CheckResult(
@@ -236,13 +279,15 @@ class LoadBalancerSecurityChecks(BaseSecurityChecks):
                         description="Classic Load Balancer does not have access logging enabled",
                         evidence=f"Access logs enabled: {enabled}, S3 bucket: {s3_bucket_name}",
                         remediation="Enable access logging to S3 for monitoring",
-                        resource_id=lb_name
+                        resource_id=lb_name,
+                        raw_evidence=raw_evidence
                     )
         
         except Exception as e:
             lb_name = load_balancer.get('LoadBalancerName', 'unknown')
             return self.create_error_result("LB.2", "Load Balancer Access Logs", 
-                                          config.severity, lb_name, e)
+                                          config.severity, lb_name, e,
+                                          raw_evidence={'load_balancer_metadata': load_balancer})
     
     def check_deletion_protection(self, load_balancer: Dict[str, Any], lb_type: str, config: CheckConfig) -> CheckResult:
         """Check if load balancer has deletion protection enabled."""
@@ -308,7 +353,8 @@ class LoadBalancerSecurityChecks(BaseSecurityChecks):
         except Exception as e:
             lb_name = load_balancer.get('LoadBalancerName', 'unknown')
             return self.create_error_result("LB.3", "Load Balancer Deletion Protection", 
-                                          config.severity, lb_name, e)
+                                          config.severity, lb_name, e,
+                                          raw_evidence={'load_balancer_metadata': load_balancer})
     
     def check_security_groups(self, load_balancer: Dict[str, Any], lb_type: str, config: CheckConfig) -> CheckResult:
         """Check load balancer security group configuration."""
@@ -383,14 +429,16 @@ class LoadBalancerSecurityChecks(BaseSecurityChecks):
         except Exception as e:
             lb_name = load_balancer.get('LoadBalancerName', 'unknown')
             return self.create_error_result("LB.4", "Load Balancer Security Groups", 
-                                          config.severity, lb_name, e)
+                                          config.severity, lb_name, e,
+                                          raw_evidence={'load_balancer_metadata': load_balancer})
     
-    def run_all_checks(self, load_balancers: Dict[str, List[Dict[str, Any]]], config_checks: Dict[str, CheckConfig]) -> List[CheckResult]:
+    def run_all_checks(self, load_balancers: Dict[str, List[Dict[str, Any]]], config_checks: Dict[str, CheckConfig], region: str = None) -> List[CheckResult]:
         """Run all Load Balancer security checks.
         
         Args:
             load_balancers: Dictionary containing 'elbv2' and 'elb' load balancer lists
             config_checks: Dictionary of check configurations
+            region: AWS region being checked
             
         Returns:
             List of CheckResult objects
@@ -405,22 +453,30 @@ class LoadBalancerSecurityChecks(BaseSecurityChecks):
             # SSL configuration check
             if 'ssl_configuration' in config_checks:
                 result = self.check_ssl_configuration(lb, 'elbv2', config_checks['ssl_configuration'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
             
             # Access logs check
             if 'access_logs' in config_checks:
                 result = self.check_access_logs(lb, 'elbv2', config_checks['access_logs'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
             
             # Deletion protection check
             if 'deletion_protection' in config_checks:
                 result = self.check_deletion_protection(lb, 'elbv2', config_checks['deletion_protection'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
             
             # Security groups check
             if 'security_groups' in config_checks:
                 result = self.check_security_groups(lb, 'elbv2', config_checks['security_groups'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
         
         # Check Classic Load Balancers (ELB)
         for lb in load_balancers.get('elb', []):
@@ -430,21 +486,29 @@ class LoadBalancerSecurityChecks(BaseSecurityChecks):
             # SSL configuration check
             if 'ssl_configuration' in config_checks:
                 result = self.check_ssl_configuration(lb, 'elb', config_checks['ssl_configuration'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
             
             # Access logs check
             if 'access_logs' in config_checks:
                 result = self.check_access_logs(lb, 'elb', config_checks['access_logs'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
             
             # Deletion protection check
             if 'deletion_protection' in config_checks:
                 result = self.check_deletion_protection(lb, 'elb', config_checks['deletion_protection'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
             
             # Security groups check
             if 'security_groups' in config_checks:
                 result = self.check_security_groups(lb, 'elb', config_checks['security_groups'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
         
         return results

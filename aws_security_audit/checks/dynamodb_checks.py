@@ -299,12 +299,13 @@ class DynamoDBSecurityChecks(BaseSecurityChecks):
             return self.create_error_result("DDB.5", "DynamoDB Global Tables", 
                                           config.severity, table_name, e)
     
-    def run_all_checks(self, table_names: List[str], config_checks: Dict[str, CheckConfig]) -> List[CheckResult]:
+    def run_all_checks(self, table_names: List[str], config_checks: Dict[str, CheckConfig], region: str = None) -> List[CheckResult]:
         """Run all DynamoDB security checks for given tables.
         
         Args:
             table_names: List of DynamoDB table names
             config_checks: Dictionary of check configurations
+            region: AWS region being checked
             
         Returns:
             List of CheckResult objects
@@ -317,26 +318,36 @@ class DynamoDBSecurityChecks(BaseSecurityChecks):
             # Encryption check
             if 'encryption_at_rest' in config_checks:
                 result = self.check_table_encryption(table_name, config_checks['encryption_at_rest'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
             
             # Point-in-time recovery check
             if 'point_in_time_recovery' in config_checks:
                 result = self.check_point_in_time_recovery(table_name, config_checks['point_in_time_recovery'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
             
             # Access control check
             if 'access_control' in config_checks:
                 result = self.check_table_access_control(table_name, config_checks['access_control'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
             
             # Auto scaling check
             if 'auto_scaling' in config_checks:
                 result = self.check_auto_scaling(table_name, config_checks['auto_scaling'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
             
             # Global tables check
             if 'global_tables' in config_checks:
                 result = self.check_global_tables(table_name, config_checks['global_tables'])
-                results.append(result)
+                if result:
+                    result.region = region or self.current_region
+                    results.append(result)
         
         return results
