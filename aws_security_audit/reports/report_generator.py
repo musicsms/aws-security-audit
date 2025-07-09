@@ -45,7 +45,8 @@ class ReportGenerator:
             'generator': 'AWS Security Audit Tool v1.0.0'
         }
     
-    def save_reports(self, results: List[CheckResult], output_dir: str, formats: List[str]) -> Dict[str, str]:
+    def save_reports(self, results: List[CheckResult], output_dir: str, formats: List[str], 
+                     save_raw_evidence: bool = True, filter_sensitive: bool = True) -> Dict[str, str]:
         """
         Save security audit reports in specified formats.
         
@@ -53,6 +54,8 @@ class ReportGenerator:
             results: List of security check results
             output_dir: Directory to save reports
             formats: List of output formats ('json', 'csv', 'markdown')
+            save_raw_evidence: Whether to save raw evidence to separate JSON file
+            filter_sensitive: Whether to filter sensitive data from raw evidence
             
         Returns:
             Dictionary mapping format names to file paths
@@ -84,6 +87,12 @@ class ReportGenerator:
             else:
                 self.logger.warning(f"Unsupported format: {format_type}")
         
+        # Generate raw evidence file if requested
+        if save_raw_evidence:
+            raw_evidence_filepath = output_path / f"{base_filename}_raw_evidence.json"
+            self._save_raw_evidence_json(results, raw_evidence_filepath, filter_sensitive)
+            saved_files['raw_evidence'] = str(raw_evidence_filepath)
+        
         self.logger.info(f"Generated {len(saved_files)} report(s) in {output_dir}")
         return saved_files
     
@@ -97,9 +106,9 @@ class ReportGenerator:
             result_dict['status'] = result.status.value
             result_dict['severity'] = result.severity.value
             
-            # Filter sensitive data from raw evidence if present
-            if result_dict.get('raw_evidence'):
-                result_dict['raw_evidence'] = self._filter_sensitive_data(result_dict['raw_evidence'])
+            # Remove raw evidence from main report - it's saved separately
+            if 'raw_evidence' in result_dict:
+                del result_dict['raw_evidence']
             
             results_data.append(result_dict)
         
@@ -107,7 +116,8 @@ class ReportGenerator:
         report_data = {
             'metadata': self.report_metadata,
             'summary': self._generate_summary(results),
-            'results': results_data
+            'results': results_data,
+            'raw_evidence_note': 'Detailed API responses available in separate *_raw_evidence.json file'
         }
         
         with open(filepath, 'w') as f:
@@ -115,11 +125,64 @@ class ReportGenerator:
         
         self.logger.info(f"JSON report saved to {filepath}")
     
+    def _save_raw_evidence_json(self, results: List[CheckResult], filepath: Path, filter_sensitive: bool = True) -> None:
+        """Save raw evidence in separate JSON format."""
+        # Organize raw evidence by service and check
+        raw_evidence_by_service = {}
+        raw_evidence_by_check = {}
+        
+        for result in results:
+            if result.raw_evidence:
+                # Extract service from check_id (e.g., "EC2.1" -> "ec2")
+                service = result.check_id.split('.')[0].lower() if result.check_id else 'unknown'
+                
+                # Filter sensitive data if requested
+                evidence = self._filter_sensitive_data(result.raw_evidence) if filter_sensitive else result.raw_evidence
+                
+                evidence_entry = {
+                    'check_id': result.check_id,
+                    'resource_id': result.resource_id,
+                    'region': result.region,
+                    'status': result.status.value,
+                    'severity': result.severity.value,
+                    'raw_evidence': evidence,
+                    'timestamp': datetime.utcnow().isoformat() + 'Z'
+                }
+                
+                # Group by service
+                if service not in raw_evidence_by_service:
+                    raw_evidence_by_service[service] = []
+                raw_evidence_by_service[service].append(evidence_entry)
+                
+                # Group by check
+                if result.check_id not in raw_evidence_by_check:
+                    raw_evidence_by_check[result.check_id] = []
+                raw_evidence_by_check[result.check_id].append(evidence_entry)
+        
+        # Create comprehensive raw evidence structure
+        raw_evidence_data = {
+            'metadata': {
+                'account_id': self.account_id,
+                'profile_name': self.profile.name,
+                'generated_at': datetime.utcnow().isoformat() + 'Z',
+                'evidence_type': 'raw_api_responses',
+                'sensitive_data_filtered': filter_sensitive,
+                'total_evidence_entries': sum(len(entries) for entries in raw_evidence_by_service.values())
+            },
+            'raw_evidence_by_service': raw_evidence_by_service,
+            'raw_evidence_by_check': raw_evidence_by_check
+        }
+        
+        with open(filepath, 'w') as f:
+            json.dump(raw_evidence_data, f, indent=2, default=str)
+        
+        self.logger.info(f"Raw evidence JSON saved to {filepath}")
+    
     def _save_csv_report(self, results: List[CheckResult], filepath: Path) -> None:
         """Save report in CSV format."""
         fieldnames = [
             'check_id', 'name', 'status', 'severity', 'description',
-            'evidence', 'remediation', 'resource_id', 'region', 'raw_evidence_summary'
+            'evidence', 'remediation', 'resource_id', 'region'
         ]
         
         with open(filepath, 'w', newline='') as f:
@@ -127,19 +190,6 @@ class ReportGenerator:
             writer.writeheader()
             
             for result in results:
-                # Create summary of raw evidence for CSV
-                raw_evidence_summary = ""
-                if result.raw_evidence:
-                    summary_parts = []
-                    for key, value in result.raw_evidence.items():
-                        if isinstance(value, dict):
-                            summary_parts.append(f"{key}: {len(value)} fields")
-                        elif isinstance(value, list):
-                            summary_parts.append(f"{key}: {len(value)} items")
-                        else:
-                            summary_parts.append(f"{key}: {str(value)[:50]}...")
-                    raw_evidence_summary = "; ".join(summary_parts[:5])  # First 5 items
-                
                 row = {
                     'check_id': result.check_id,
                     'name': result.name,
@@ -149,8 +199,7 @@ class ReportGenerator:
                     'evidence': result.evidence,
                     'remediation': result.remediation or '',
                     'resource_id': result.resource_id or '',
-                    'region': result.region or '',
-                    'raw_evidence_summary': raw_evidence_summary
+                    'region': result.region or ''
                 }
                 writer.writerow(row)
         
@@ -171,17 +220,6 @@ class ReportGenerator:
             'all_results': results
         }
         
-        # Add custom filter for JSON formatting
-        def tojson_filter(value, indent=2):
-            if value is None:
-                return 'null'
-            try:
-                filtered_value = self._filter_sensitive_data(value) if isinstance(value, dict) else value
-                return json.dumps(filtered_value, indent=indent, default=str)
-            except Exception as e:
-                return f"Error formatting JSON: {str(e)}\nRaw value: {str(value)}"
-        
-        template.globals['tojson'] = tojson_filter
         
         rendered_content = template.render(**template_data)
         
@@ -305,6 +343,7 @@ class ReportGenerator:
 - **Security Profile**: {{ metadata.profile_name }} ({{ metadata.profile_version }})
 - **Generated**: {{ metadata.generated_at }}
 - **Generator**: {{ metadata.generator }}
+- **Raw Evidence**: Detailed API responses available in separate `*_raw_evidence.json` file
 
 ## Executive Summary
 
@@ -346,17 +385,6 @@ class ReportGenerator:
 - **Evidence**: {{ result.evidence }}
 - **Remediation**: {{ result.remediation or 'Not specified' }}
 
-{% if result.raw_evidence -%}
-<details>
-<summary>Raw Evidence Details</summary>
-
-```json
-{{ tojson(result.raw_evidence, indent=2) if result.raw_evidence else 'No raw evidence available' }}
-```
-
-</details>
-{% endif -%}
-
 {% endif -%}
 {% endfor -%}
 {% else -%}
@@ -377,17 +405,6 @@ No critical findings detected.
 - **Description**: {{ result.description }}
 - **Evidence**: {{ result.evidence }}
 - **Remediation**: {{ result.remediation or 'Not specified' }}
-
-{% if result.raw_evidence -%}
-<details>
-<summary>Raw Evidence Details</summary>
-
-```json
-{{ tojson(result.raw_evidence, indent=2) if result.raw_evidence else 'No raw evidence available' }}
-```
-
-</details>
-{% endif -%}
 
 {% endif -%}
 {% endfor -%}
@@ -438,20 +455,6 @@ No error findings detected.
 | {{ result.name }} | {{ result.status.value }} | {{ result.severity.value }} | {{ result.resource_id or 'N/A' }} | {{ result.region or 'N/A' }} |
 {% endfor %}
 
-{% for result in service_results -%}
-{% if result.raw_evidence -%}
-#### {{ result.name }} - Raw Evidence
-
-<details>
-<summary>Raw Evidence for {{ result.resource_id or 'N/A' }}</summary>
-
-```json
-{{ tojson(result.raw_evidence, indent=2) }}
-```
-
-</details>
-
-{% endif -%}
 {% endfor %}
 
 {% endfor %}

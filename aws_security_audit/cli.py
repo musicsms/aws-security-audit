@@ -55,9 +55,14 @@ def setup_logging(verbose: bool = False):
 @click.option('--parallel-checks', default=5, type=int, help='Number of parallel check threads')
 @click.option('--verbose', '-v', is_flag=True, help='Enable verbose logging')
 @click.option('--dry-run', is_flag=True, help='Validate configuration without running checks')
+@click.option('--save-raw-evidence', is_flag=True, default=True, help='Save raw evidence to separate JSON file')
+@click.option('--raw-evidence-sensitive', is_flag=True, default=True, help='Filter sensitive data from raw evidence')
+@click.option('--ca-bundle', help='Path to custom CA bundle file (PEM format) for SSL verification')
+@click.option('--verify-ssl/--no-verify-ssl', default=True, help='Enable/disable SSL certificate verification')
 def main(account_id, auth_method, profile_name, role_arn, access_key_id, secret_access_key,
          security_profile, config_file, output_format, output_dir, regions, services,
-         parallel_checks, verbose, dry_run):
+         parallel_checks, verbose, dry_run, save_raw_evidence, raw_evidence_sensitive,
+         ca_bundle, verify_ssl):
     """AWS Security Audit Tool - Comprehensive security assessment for AWS accounts."""
     
     # Setup logging
@@ -129,6 +134,8 @@ def main(account_id, auth_method, profile_name, role_arn, access_key_id, secret_
         aws_client = AWSClientManager(
             account_id=account_id,
             auth_method=auth_method,
+            ca_bundle=ca_bundle,
+            verify_ssl=verify_ssl,
             **auth_params
         )
         
@@ -169,7 +176,9 @@ def main(account_id, auth_method, profile_name, role_arn, access_key_id, secret_
         saved_files = report_generator.save_reports(
             results=results,
             output_dir=output_dir,
-            formats=list(output_format)
+            formats=list(output_format),
+            save_raw_evidence=save_raw_evidence,
+            filter_sensitive=raw_evidence_sensitive
         )
         
         # Summary

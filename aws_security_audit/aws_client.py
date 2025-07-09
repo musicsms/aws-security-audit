@@ -40,19 +40,24 @@ class AWSClientManager:
     """Manages AWS service clients with authentication and error handling."""
     
     def __init__(self, account_id: str, auth_method: str, 
-                 region: str = "us-east-1", **auth_params):
+                 region: str = "us-east-1", ca_bundle: Optional[str] = None, 
+                 verify_ssl: bool = True, **auth_params):
         """Initialize AWS client manager.
         
         Args:
             account_id: Target AWS account ID
             auth_method: Authentication method (profile/role/keys/instance)
             region: AWS region for API calls
+            ca_bundle: Path to custom CA bundle file (PEM format)
+            verify_ssl: Enable/disable SSL verification
             **auth_params: Authentication-specific parameters
         """
         self.account_id = account_id
         self.auth_method = AuthMethod(auth_method.lower())
         self.region = region
         self.auth_params = auth_params
+        self.ca_bundle = ca_bundle
+        self.verify_ssl = verify_ssl
         self.session = None
         self.clients = {}
         self.retry_config = RetryConfig()
@@ -61,17 +66,56 @@ class AWSClientManager:
         self.logger = logging.getLogger(__name__)
         
         # Configure boto3 client settings
-        self.boto_config = Config(
-            retries={
-                'max_attempts': self.retry_config.max_attempts,
-                'mode': 'adaptive'
-            },
-            max_pool_connections=50,
-            region_name=region
-        )
+        self.boto_config = self._create_boto_config(region)
+        
+        # Log SSL configuration
+        if not self.verify_ssl:
+            self.logger.warning("SSL verification is disabled - this is not recommended for production")
+        elif self.ca_bundle:
+            self.logger.info(f"Using custom CA bundle: {self.ca_bundle}")
+        else:
+            self.logger.info("Using system default CA bundle for SSL verification")
         
         # Initialize session
         self._create_session()
+    
+    def _create_boto_config(self, region: str) -> Config:
+        """Create boto3 configuration with SSL settings.
+        
+        Args:
+            region: AWS region for the configuration
+            
+        Returns:
+            Boto3 Config object with appropriate SSL settings
+        """
+        import os
+        
+        config_params = {
+            'retries': {
+                'max_attempts': self.retry_config.max_attempts,
+                'mode': 'adaptive'
+            },
+            'max_pool_connections': 50,
+            'region_name': region
+        }
+        
+        # Configure SSL verification
+        if not self.verify_ssl:
+            # Disable SSL verification entirely
+            config_params['verify'] = False
+        elif self.ca_bundle:
+            # Use custom CA bundle
+            if os.path.exists(self.ca_bundle):
+                config_params['ca_bundle'] = self.ca_bundle
+                config_params['verify'] = True
+            else:
+                self.logger.error(f"CA bundle file not found: {self.ca_bundle}")
+                raise FileNotFoundError(f"CA bundle file not found: {self.ca_bundle}")
+        else:
+            # Use system default CA bundle
+            config_params['verify'] = True
+        
+        return Config(**config_params)
     
     def _create_session(self) -> None:
         """Create boto3 session based on authentication method."""
